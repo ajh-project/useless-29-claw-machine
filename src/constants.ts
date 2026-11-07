@@ -1,10 +1,21 @@
 // 기계 치수 (단위: 미터). 물리와 그래픽이 같은 값을 쓴다
 export const CW = 0.52 // 안쪽 너비의 절반
 export const CD = 0.42 // 안쪽 깊이의 절반
-export const CH = 1.2 // 높이
+export const CH = 1.36 // 높이
 export const RAIL_Y = CH - 0.05
 export const PIVOT_Y = RAIL_Y - 0.065 // 줄이 매달린 지점
-export const TOP_Y = 0.98 // 집게 머리가 쉬는 높이
+export const TOP_Y = 1.14 // 집게 머리가 쉬는 높이
+
+// 진열 상자: 투명한 사각 상자를 뒤로 갈수록 높게 놓고 그 안에 인형을 탑처럼 쌓는다
+export const BIN_HX = 0.125
+export const BIN_HZ = 0.105
+export const BIN_RIM = 0.1
+const COLS = [-0.39, -0.13, 0.13, 0.39]
+export const BINS = [
+  ...COLS.map((x) => ({ x, z: -0.31, floor: 0.14, layers: 3 })),
+  ...COLS.map((x) => ({ x, z: -0.1, floor: 0.07, layers: x < 0 ? 2 : 3 })), // 출구 옆은 시작 전에 무너져 들어가지 않게 낮춤
+  ...COLS.slice(2).map((x) => ({ x, z: 0.15, floor: 0, layers: 4 })),
+]
 
 // 출구: 왼쪽 앞 아크릴 상자
 export const CHUTE = { x0: -0.5, x1: -0.15, z0: 0.04, z1: 0.4, h: 0.3 }
@@ -30,7 +41,7 @@ export const CLOSED = -0.12 // 완전히 닫힌 각도
 
 // 집게 힘: 잡은 뒤 얼마나 풀리는가. 게임 화면에 그대로 표시한다
 export const STRENGTHS = [
-  { name: '강함', relax: 0.0 },
+  { name: '강함', relax: 0.09 },
   { name: '보통', relax: 0.2 },
   { name: '실제 기계', relax: 0.32 },
 ]

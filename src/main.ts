@@ -22,7 +22,7 @@ const scene = new T.Scene()
 const camera = new T.PerspectiveCamera(40, 1, 0.05, 40)
 
 const machine = new Machine(scene, renderer, low)
-const sim = new Sim({ count: low ? 36 : 40, seed: (Math.random() * 1e9) | 0, species: SPECIES.length })
+const sim = new Sim({ seed: (Math.random() * 1e9) | 0, species: SPECIES.length })
 const plush = new PlushRenderer(scene, sim.dolls, low ? 10 : 18)
 
 /* ---------- 조작 ---------- */
@@ -104,10 +104,38 @@ strengthBtn.addEventListener('click', () => {
 })
 showStrength()
 
-let sideView = false, viewAz = 0.06
-$('view').addEventListener('click', () => {
-  sideView = !sideView
-  $('view').textContent = sideView ? '앞에서 보기' : '옆에서 보기'
+// 시점: 3인칭(내 뒷모습) → 1인칭(눈높이) → 옆에서 깊이 확인
+const VIEWS = ['3인칭', '1인칭', '옆에서']
+let view = Number(params.get('view') ?? 0) % VIEWS.length
+const viewBtn = $('view')
+machine.setPersonVisible(view !== 1)
+function showView() { viewBtn.textContent = `시점: ${VIEWS[view]}` }
+viewBtn.addEventListener('click', () => {
+  view = (view + 1) % VIEWS.length
+  showView()
+  machine.setPersonVisible(view !== 1)
+})
+showView()
+
+// 화면을 끌면 고개를 옆으로 기울이듯 시야가 움직인다
+let peek = 0, peekDrag: number | null = null
+canvas.addEventListener('pointerdown', (e) => { peekDrag = e.clientX; canvas.setPointerCapture(e.pointerId) })
+canvas.addEventListener('pointermove', (e) => {
+  if (peekDrag === null) return
+  peek = Math.max(-0.65, Math.min(0.65, peek + (peekDrag - e.clientX) * 0.004))
+  peekDrag = e.clientX
+})
+const peekEnd = () => { peekDrag = null }
+canvas.addEventListener('pointerup', peekEnd)
+canvas.addEventListener('pointercancel', peekEnd)
+
+// 안드로이드는 버튼 한 번으로 전체 화면 + 가로 고정. 아이폰은 폰을 직접 돌리면 가로 배치로 바뀐다
+const landBtn = $('landscape')
+landBtn.addEventListener('click', async () => {
+  try {
+    await document.documentElement.requestFullscreen()
+    await (screen.orientation as unknown as { lock(o: string): Promise<void> }).lock('landscape')
+  } catch { /* 지원하지 않는 기기는 폰을 직접 돌리면 된다 */ }
 })
 
 function resize() {
@@ -119,11 +147,33 @@ function resize() {
 addEventListener('resize', resize)
 resize()
 
-function placeCamera() {
-  const t = Math.tan((camera.fov * Math.PI) / 360)
-  const dist = Math.max(1.56 / (2 * t), 1.0 / (2 * t * camera.aspect)) + 0.42
-  camera.position.set(Math.sin(viewAz) * dist, 0.68, Math.cos(viewAz) * dist)
-  camera.lookAt(0, 0.58, 0)
+const camPos = new T.Vector3(0.2, 0.9, 3), camLook = new T.Vector3(0.1, 0.6, 0)
+const wantPos = new T.Vector3(), wantLook = new T.Vector3()
+function placeCamera(dt: number) {
+  const fov = view === 1 ? 52 : 36
+  const t = Math.tan((fov * Math.PI) / 360)
+  const dist = Math.max(1.48 / (2 * t), 1.25 / (2 * t * camera.aspect))
+  if (view === 0) {
+    // 내 뒤쪽 어깨너머. 가로 화면이면 기계 오른쪽 앞에 선 내 모습까지 보인다
+    wantPos.set(camera.aspect > 1.4 ? -0.18 : 0, 1.12, dist + 0.42)
+    wantLook.set(camera.aspect > 1.4 ? 0.1 : 0, 0.66, 0)
+  } else if (view === 1) {
+    // 기계 바로 앞 사람 눈높이 (바닥에서 약 1.6m)
+    wantPos.set(0, 0.84, 1.32 + (camera.aspect < 1 ? 0.5 : 0))
+    wantLook.set(0, 0.46, -0.05)
+  } else {
+    wantPos.set(dist + 0.2, 0.78, 0.3)
+    wantLook.set(0, 0.6, 0)
+  }
+  // 고개 기울이기: 기계 중심을 기준으로 시야를 돌림
+  wantPos.applyAxisAngle(T.Object3D.DEFAULT_UP, peek)
+  const k = Math.min(1, dt * 4)
+  camPos.lerp(wantPos, k)
+  camLook.lerp(wantLook, k)
+  camera.fov += (fov - camera.fov) * k
+  camera.updateProjectionMatrix()
+  camera.position.copy(camPos)
+  camera.lookAt(camLook)
 }
 
 /* ---------- 매 프레임 ---------- */
@@ -146,8 +196,7 @@ function frame() {
     toastT -= dt
     if (toastT <= 0) $('toast').hidden = true
   }
-  viewAz += ((sideView ? 1.32 : 0.06) - viewAz) * Math.min(1, dt * 3)
-  placeCamera()
+  placeCamera(dt)
   renderer.render(scene, camera)
   requestAnimationFrame(frame)
 }

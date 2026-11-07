@@ -2,7 +2,7 @@
 import RAPIER from '@dimforge/rapier3d-compat'
 import { Euler, Matrix4, Quaternion, Vector3 } from 'three'
 import {
-  CD, CH, CHUTE, CLAW_LEN, CLOSED, CW, HOME_X, HOME_Z, OPEN_DOWN, OPEN_REST, PIVOT_Y, PRONG_PTS,
+  BIN_HX, BIN_HZ, BIN_RIM, BINS, CD, CH, CHUTE, CLAW_LEN, CLOSED, CW, HOME_X, HOME_Z, OPEN_DOWN, OPEN_REST, PIVOT_Y, PRONG_PTS,
   PRONG_X, PRONG_Y, PRONG_YAW, STRENGTHS, TOP_Y,
 } from './constants'
 
@@ -45,7 +45,7 @@ export class Sim {
   claw = { x: 0.12, z: 0.02, vx: 0, vz: 0, y: TOP_Y, yaw: PRONG_YAW, open: OPEN_REST, swX: 0, swZ: 0, swVX: 0, swVZ: 0 }
   tries = 0
   wins = 0
-  strength = 1
+  strength = STRENGTHS.length - 1
   onPrize: (d: Doll) => void = () => {}
   private prongs: RAPIER.RigidBody[] = []
   private palm: RAPIER.RigidBody
@@ -58,7 +58,7 @@ export class Sim {
   private rand: () => number
   private ready = false
 
-  constructor(opts: { count: number; seed: number; species: number }) {
+  constructor(opts: { seed: number; species: number }) {
     this.rand = makeRng(opts.seed)
     this.world = new RAPIER.World({ x: 0, y: -7.5, z: 0 })
     this.world.timestep = H
@@ -67,9 +67,11 @@ export class Sim {
     this.palmCollider = this.world.createCollider(RAPIER.ColliderDesc.ball(0.045).setFriction(0.7), this.palm)
     for (let i = 0; i < 3; i++) this.prongs.push(this.buildProng())
     this.moveClaw(true)
-    this.spawn(opts.count, opts.species)
-    for (let i = 0; i < 420; i++) this.world.step() // 인형이 쌓일 때까지 미리 돌림
+    this.spawn(opts.species)
+    for (let i = 0; i < 240; i++) this.world.step() // 인형이 자리 잡을 때까지 미리 돌림
     this.clearChute()
+    // 탑은 건드리기 전까지 가만히 있고, 집게가 닿으면 깨어나 무너질 수 있다
+    for (const d of this.dolls) d.body.sleep()
     this.readDolls()
     this.ready = true
   }
@@ -90,6 +92,15 @@ export class Sim {
     const w = 0.012
     this.wall((c.x1 - c.x0) / 2 + w, c.h / 2, w, (c.x0 + c.x1) / 2, c.h / 2, c.z0)
     this.wall(w, c.h / 2, (c.z1 - c.z0) / 2 + w, c.x1, c.h / 2, (c.z0 + c.z1) / 2)
+    // 진열 상자: 받침과 네 면의 테두리
+    for (const b of BINS) {
+      if (b.floor > 0) this.wall(BIN_HX, b.floor / 2, BIN_HZ, b.x, b.floor / 2, b.z)
+      const y = b.floor + BIN_RIM / 2
+      this.wall(BIN_HX, BIN_RIM / 2, w, b.x, y, b.z - BIN_HZ)
+      this.wall(BIN_HX, BIN_RIM / 2, w, b.x, y, b.z + BIN_HZ)
+      this.wall(w, BIN_RIM / 2, BIN_HZ, b.x - BIN_HX, y, b.z)
+      this.wall(w, BIN_RIM / 2, BIN_HZ, b.x + BIN_HX, y, b.z)
+    }
   }
 
   private buildProng() {
@@ -108,24 +119,21 @@ export class Sim {
     return body
   }
 
-  private spawn(count: number, species: number) {
+  private spawn(species: number) {
     const R = this.rand
     const counts = new Array(species).fill(0)
-    for (let i = 0; i < count; i++) {
-      const sp = i % species
-      const s = 0.2 + R() * 0.06
-      let x = 0, z = 0
-      do {
-        x = -0.42 + R() * 0.84
-        z = -0.32 + R() * 0.66
-      } while (x < CHUTE.x1 + s * 0.45 && z > CHUTE.z0 - s * 0.45)
-      const q = new Quaternion().setFromEuler(new Euler(-1.05 + R() * 1.3, -0.95 + R() * 1.9, -0.95 + R() * 1.9))
+    const queue = BINS.flatMap((b, n) => Array.from({ length: b.layers }, (_, layer) => ({ b, layer, sp: n % species })))
+    for (const { b, layer, sp } of queue) {
+      const s = 0.19 + R() * 0.03
+      const x = b.x + (R() - 0.5) * 0.02, z = b.z + (R() - 0.5) * 0.02
+      // 얼굴이 앞을 보도록 뒤로 눕혀 차곡차곡 쌓음
+      const q = new Quaternion().setFromEuler(new Euler(-1.2 + (R() - 0.5) * 0.25, (R() - 0.5) * 0.3, (R() - 0.5) * 0.25))
       const body = this.world.createRigidBody(
         RAPIER.RigidBodyDesc.dynamic()
-          .setTranslation(x, 0.2 + i * 0.065, z)
+          .setTranslation(x, b.floor + 0.11 + layer * 0.19, z)
           .setRotation({ x: q.x, y: q.y, z: q.z, w: q.w })
           .setLinearDamping(0.7)
-          .setAngularDamping(1.6)
+          .setAngularDamping(3)
           .setCcdEnabled(false),
       )
       const doll: Doll = { sp, i: counts[sp]++, s, body, p: new Vector3(), q: new Quaternion(), gone: false }
@@ -146,16 +154,26 @@ export class Sim {
     }
   }
 
-  // 쌓는 도중 출구로 굴러간 인형은 더미 쪽으로 옮겨 시작 전에 뽑힌 것으로 치지 않음
+  // 시작 전에 출구로 떨어진 인형은 뽑은 것으로 치지 않고 앞쪽 상자 위로 옮김
   private clearChute() {
+    let moved = 0
     for (const d of this.dolls) {
       const t = d.body.translation()
-      if (t.x < CHUTE.x1 + 0.02 && t.z > CHUTE.z0 - 0.02) {
-        d.body.setTranslation({ x: 0.3, y: 0.8, z: -0.2 }, true)
+      if (t.x < CHUTE.x1 + 0.03 && t.z > CHUTE.z0 - 0.03) {
+        d.body.setTranslation({ x: 0.26, y: 0.75 + moved++ * 0.2, z: 0.2 }, true)
         d.body.setLinvel({ x: 0, y: 0, z: 0 }, true)
       }
     }
-    for (let i = 0; i < 120; i++) this.world.step()
+    if (moved) for (let i = 0; i < 180; i++) this.world.step()
+  }
+
+  // 집게가 상자 위에 있으면 테두리 아래로는 내려가지 못한다
+  private rimBelow() {
+    let top = 0
+    for (const b of BINS) {
+      if (Math.abs(this.claw.x - b.x) < BIN_HX + 0.05 && Math.abs(this.claw.z - b.z) < BIN_HZ + 0.05) top = Math.max(top, b.floor + BIN_RIM)
+    }
+    return top
   }
 
   private readDolls() {
@@ -224,7 +242,7 @@ export class Sim {
       const R = this.rand
       // 줄이 꼬이며 도는 패턴. 매번 달라서 눈으로 보고 타이밍을 맞춰야 한다
       this.spin = { a: 1.5 + R() * 1.1, w1: 1.3 + R() * 1.5, w2: 2.9 + R() * 1.8, ph1: R() * 6.28, ph2: R() * 6.28 }
-      this.targetY = Math.max(this.surfaceBelow() - 0.1 + CLAW_LEN, 0.4)
+      this.targetY = Math.max(this.surfaceBelow() - 0.1 + CLAW_LEN, this.rimBelow() + 0.015 + CLAW_LEN, 0.4)
       this.setState('down')
     } else if (this.state === 'down') {
       this.setState('close')

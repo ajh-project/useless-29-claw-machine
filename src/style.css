@@ -21,4 +21,14 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
 #drop { width: 104px; height: 104px; border-radius: 50%; border: 5px solid #0a070c; background: radial-gradient(circle at 40% 32%, #ffd4ec 0 10%, var(--led) 45%, #a62a70 100%); color: #22061a; font-size: 24px; font-weight: 800; font-family: inherit; box-shadow: 0 0 22px #ff5fb4aa, 0 6px 0 #0a070c; cursor: pointer; touch-action: manipulation }
 #drop:disabled { filter: saturate(.25) brightness(.65); box-shadow: 0 6px 0 #0a070c }
 button:focus-visible { outline: 3px solid var(--read); outline-offset: 2px }
+/* 가로 화면: 기계를 화면 가득 보여 주고 조작부는 양쪽 아래에 띄움 */
+@media (orientation: landscape) {
+  #landscape { display: none }
+  #deck { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: flex-end; padding-block: 0 max(12px, env(safe-area-inset-bottom, 0px)); background: none; border: 0; box-shadow: none; pointer-events: none }
+  #deck > * { pointer-events: auto }
+  #lever { width: 124px; height: 124px; background: radial-gradient(circle, #0a070ce6 0 38%, #3a2b40e6 39% 41%, #2b1d30b8 42%) }
+  .turn { margin-left: auto; margin-right: 6px; color: var(--fg); text-shadow: 0 1px 3px #000 }
+  .turn button { background: #2b1d30e0 }
+  #drop { width: 100px; height: 100px }
+}
 @media (max-width: 370px) { #lever { width: 108px; height: 108px } #drop { width: 88px; height: 88px; font-size: 20px } }

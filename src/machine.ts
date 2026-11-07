@@ -1,9 +1,10 @@
 // 기계 본체·집게·오락실 배경 그래픽
 import * as T from 'three'
-import { CD, CH, CHUTE, CW, PRONG_PTS, PRONG_X, PRONG_Y, PRONG_YAW, PIVOT_Y, RAIL_Y } from './constants'
+import { BIN_HX, BIN_HZ, BIN_RIM, BINS, CD, CH, CHUTE, CW, PRONG_PTS, PRONG_X, PRONG_Y, PRONG_YAW, PIVOT_Y, RAIL_Y } from './constants'
 import type { Sim } from './sim'
 
-const FONT = '"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif'
+export const FLOOR_Y = -0.78
+const FONT ='"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif'
 
 function canvasTexture(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void) {
   const c = document.createElement('canvas')
@@ -71,6 +72,10 @@ export class Machine {
   private pivots: T.Group[] = []
   private stick = new T.Group()
   private btn: T.Mesh
+  private person = new T.Group()
+  private upperArm!: T.Mesh
+  private foreArm!: T.Mesh
+  private hand!: T.Mesh
 
   constructor(private scene: T.Scene, renderer: T.WebGLRenderer, low: boolean) {
     scene.add(new T.Mesh(new T.SphereGeometry(9, 48, 24), new T.MeshBasicMaterial({ map: arcadeTexture(), side: T.BackSide })))
@@ -81,7 +86,7 @@ export class Machine {
     sun.position.set(0.35, 2.4, 1.25)
     sun.castShadow = true
     sun.shadow.mapSize.setScalar(low ? 1024 : 2048)
-    Object.assign(sun.shadow.camera, { left: -0.75, right: 0.75, top: 0.85, bottom: -0.85, near: 0.5, far: 4.5 })
+    Object.assign(sun.shadow.camera, { left: -0.85, right: 1.1, top: 1, bottom: -1.2, near: 0.5, far: 5.5 })
     sun.shadow.bias = -0.0006
     sun.shadow.normalBias = 0.03
     sun.shadow.radius = 5
@@ -98,6 +103,8 @@ export class Machine {
     const rubber = new T.MeshStandardMaterial({ color: 0x101014, roughness: 0.42 })
     this.buildCabinet(chrome, brushed)
     this.buildDeck(chrome, rubber)
+    this.buildBase()
+    this.buildPerson()
     const btnMat = new T.MeshPhysicalMaterial({ color: 0xc06cff, emissive: 0x7a2ad0, emissiveIntensity: 1.5, roughness: 0.15, clearcoat: 1 })
     this.btn = new T.Mesh(new T.CylinderGeometry(0.044, 0.048, 0.014, 32), btnMat)
     this.btn.position.set(0.09, -0.012, CD + 0.2)
@@ -271,6 +278,97 @@ export class Machine {
     card.position.set(c.x1 - 0.09, 0.17, c.z1 + 0.0045)
     this.scene.add(card)
     void chrome
+
+    // 진열 상자: 투명 받침과 테두리
+    const rimEdge = new T.MeshStandardMaterial({ color: 0xffffff, metalness: 0.1, roughness: 0.12, transparent: true, opacity: 0.6, envMapIntensity: 1.6 })
+    for (const n of BINS) {
+      if (n.floor > 0) b(BIN_HX * 2, n.floor, BIN_HZ * 2, n.x, n.floor / 2, n.z, acrylic).renderOrder = 3
+      const y = n.floor + BIN_RIM / 2, top = n.floor + BIN_RIM
+      b(BIN_HX * 2, BIN_RIM, 0.005, n.x, y, n.z + BIN_HZ, acrylic).renderOrder = 4
+      b(BIN_HX * 2, BIN_RIM, 0.005, n.x, y, n.z - BIN_HZ, acrylic).renderOrder = 4
+      b(0.005, BIN_RIM, BIN_HZ * 2, n.x - BIN_HX, y, n.z, acrylic).renderOrder = 4
+      b(0.005, BIN_RIM, BIN_HZ * 2, n.x + BIN_HX, y, n.z, acrylic).renderOrder = 4
+      b(BIN_HX * 2 + 0.006, 0.005, 0.006, n.x, top, n.z + BIN_HZ, rimEdge)
+      b(BIN_HX * 2 + 0.006, 0.005, 0.006, n.x, top, n.z - BIN_HZ, rimEdge)
+      b(0.006, 0.005, BIN_HZ * 2, n.x - BIN_HX, top, n.z, rimEdge)
+      b(0.006, 0.005, BIN_HZ * 2, n.x + BIN_HX, top, n.z, rimEdge)
+    }
+  }
+
+  // 기계 아래쪽 몸통과 오락실 바닥. 사람 눈높이에 맞도록 바닥은 진열대보다 0.78m 아래
+  private buildBase() {
+    const panel = new T.MeshPhysicalMaterial({ color: 0xe0559f, metalness: 0.55, roughness: 0.32, clearcoat: 0.7 })
+    this.box(CW * 2 + 0.07, 0.72, CD * 2 + 0.06, 0, FLOOR_Y + 0.36, 0, panel, true)
+    this.box(CW * 2 + 0.07, 0.016, 0.012, 0, FLOOR_Y + 0.7, CD + 0.036, new T.MeshBasicMaterial({ color: new T.Color(0xff9ad8).multiplyScalar(1.8), toneMapped: false }))
+    this.box(0.3, 0.26, 0.012, (CHUTE.x0 + CHUTE.x1) / 2, FLOOR_Y + 0.3, CD + 0.034, new T.MeshStandardMaterial({ color: 0x0b080d, roughness: 0.3, metalness: 0.4 }))
+    this.box(0.1, 0.05, 0.01, 0.24, FLOOR_Y + 0.46, CD + 0.034, new T.MeshStandardMaterial({ color: 0x16121a, metalness: 0.8, roughness: 0.28 }))
+    const floorTex = canvasTexture(256, 256, (g) => {
+      g.fillStyle = '#2a2230'; g.fillRect(0, 0, 256, 256)
+      g.fillStyle = '#3a3142'; g.fillRect(0, 0, 128, 128); g.fillRect(128, 128, 128, 128)
+    })
+    floorTex.wrapS = floorTex.wrapT = T.RepeatWrapping
+    floorTex.repeat.set(14, 14)
+    const floor = new T.Mesh(new T.CircleGeometry(8.8, 48), new T.MeshStandardMaterial({ map: floorTex, roughness: 0.3, metalness: 0.15 }))
+    floor.rotation.x = -Math.PI / 2
+    floor.position.y = FLOOR_Y
+    floor.receiveShadow = true
+    this.scene.add(floor)
+  }
+
+  // 기계 앞에 선 사람: 뒷모습. 오른손이 레버를 잡고 움직인다
+  private buildPerson() {
+    const g = this.person
+    g.position.set(0.98, FLOOR_Y, CD + 0.42)
+    g.rotation.y = 0.75
+    this.scene.add(g)
+    const shirt = new T.MeshStandardMaterial({ color: 0xcdbfa8, roughness: 0.9 })
+    const jeans = new T.MeshStandardMaterial({ color: 0x2c3a52, roughness: 0.85 })
+    const skin = new T.MeshStandardMaterial({ color: 0xe0b394, roughness: 0.6 })
+    const hair = new T.MeshStandardMaterial({ color: 0x17120f, roughness: 0.65 })
+    const part = (geo: T.BufferGeometry, mat: T.Material, x: number, y: number, z: number, sx = 1, sy = 1, sz = 1) => {
+      const m = new T.Mesh(geo, mat)
+      m.position.set(x, y, z)
+      m.scale.set(sx, sy, sz)
+      m.castShadow = true
+      g.add(m)
+      return m
+    }
+    part(new T.CapsuleGeometry(0.075, 0.72, 6, 14), jeans, -0.1, 0.43, 0)
+    part(new T.CapsuleGeometry(0.075, 0.72, 6, 14), jeans, 0.1, 0.43, 0)
+    part(new T.CapsuleGeometry(0.18, 0.36, 8, 20), shirt, 0, 1.13, 0, 1.08, 1, 0.68)
+    part(new T.CylinderGeometry(0.05, 0.056, 0.1, 14), skin, 0, 1.48, 0)
+    part(new T.SphereGeometry(0.108, 28, 20), skin, 0, 1.6, 0, 0.95, 1.08, 1)
+    part(new T.SphereGeometry(0.112, 28, 20), hair, 0, 1.635, 0.012, 0.98, 1, 0.98)
+    part(new T.CapsuleGeometry(0.048, 0.56, 6, 12), shirt, 0.235, 1.1, 0).rotation.z = 0.08
+    const limb = () => {
+      const m = new T.Mesh(new T.CylinderGeometry(0.045, 0.042, 1, 12), shirt)
+      m.castShadow = true
+      this.scene.add(m)
+      return m
+    }
+    this.upperArm = limb()
+    this.foreArm = limb()
+    this.hand = new T.Mesh(new T.SphereGeometry(0.046, 16, 12), skin)
+    this.hand.castShadow = true
+    this.scene.add(this.hand)
+  }
+
+  private setLimb(m: T.Mesh, a: T.Vector3, b: T.Vector3) {
+    const d = b.clone().sub(a)
+    m.position.copy(a).addScaledVector(d, 0.5)
+    m.scale.y = d.length()
+    m.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize())
+  }
+
+  private syncArm() {
+    this.stick.updateWorldMatrix(true, false)
+    const hand = this.stick.localToWorld(new T.Vector3(0, 0.15, 0.012))
+    this.person.updateWorldMatrix(true, false)
+    const shoulder = this.person.localToWorld(new T.Vector3(-0.2, 1.34, -0.02))
+    const elbow = shoulder.clone().lerp(hand, 0.5).add(new T.Vector3(0.1, -0.13, 0.05))
+    this.setLimb(this.upperArm, shoulder, elbow)
+    this.setLimb(this.foreArm, elbow, hand)
+    this.hand.position.copy(hand)
   }
 
   private buildDeck(chrome: T.Material, rubber: T.Material) {
@@ -278,7 +376,7 @@ export class Machine {
     this.box(CW * 2 + 0.08, 0.05, 0.36, 0, -0.045, CD + 0.2, deck)
     this.box(CW * 2 + 0.08, 0.012, 0.022, 0, -0.015, CD + 0.03, chrome)
     this.box(CW * 2 + 0.08, 0.012, 0.018, 0, -0.015, CD + 0.37, chrome)
-    this.stick.position.set(0.28, -0.018, CD + 0.2)
+    this.stick.position.set(0.42, -0.018, CD + 0.2)
     this.scene.add(this.stick)
     this.stick.add(new T.Mesh(new T.CylinderGeometry(0.04, 0.046, 0.012, 28), rubber))
     const shaft = new T.Mesh(new T.CylinderGeometry(0.0085, 0.0085, 0.1, 14), rubber)
@@ -309,5 +407,11 @@ export class Machine {
     this.stick.rotation.x = input.y * 0.34
     this.stick.rotation.z = -input.x * 0.34
     this.btn.position.y = sim.state === 'idle' || sim.state === 'down' ? -0.012 : -0.018
+    this.syncArm()
+  }
+
+  // 1인칭에서는 내 몸이 시야를 가리지 않도록 숨김
+  setPersonVisible(v: boolean) {
+    this.person.visible = this.upperArm.visible = this.foreArm.visible = this.hand.visible = v
   }
 }

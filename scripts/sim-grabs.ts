@@ -3,13 +3,14 @@ import { STRENGTHS } from '../src/constants'
 import { Autopilot, initPhysics, Sim, type Input } from '../src/sim'
 
 await initPhysics()
-const TRIES = 30
+const TRIES = 60
 
 for (let level = 0; level < STRENGTHS.length; level++) {
   let wins = 0, tries = 0, maxSpeed = 0, escaped = 0, stuck = 0
   for (let seed = 1; seed <= 2; seed++) {
-    const sim = new Sim({ count: 36, seed: seed * 101, species: 6 })
+    const sim = new Sim({ seed: seed * 101, species: 6 })
     sim.strength = level
+    if (sim.dolls.some((d) => d.p.x < -0.15 && d.p.z > 0.04)) throw new Error('시작 전에 출구에 인형이 있음')
     const auto = new Autopilot()
     const input: Input = { x: 0, y: 0, rot: 0 }
     let ticks = 0
