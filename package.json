@@ -1,0 +1,24 @@
+{
+  "name": "useless-29-claw-machine",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "sim": "tsx scripts/sim-grabs.ts",
+    "deploy": "npm run build && gh-pages -d dist"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.14.0",
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.169.0",
+    "gh-pages": "^6.3.0",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9",
+    "vite": "^5.4.21"
+  }
+}
