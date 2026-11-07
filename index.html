@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#120a14">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>말랑 크레인</title>
+  <script type="module" crossorigin src="./assets/index-DpidhaCE.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DJMBEfPb.css">
+</head>
+<body>
+  <div id="app">
+    <div id="stage">
+      <canvas id="c"></canvas>
+      <div id="readout" aria-live="polite">시도 0 · 획득 0</div>
+      <div id="chips">
+        <button id="view" class="chip">옆에서 보기</button>
+        <button id="strength" class="chip">집게 힘</button>
+      </div>
+      <div id="toast" role="status" hidden></div>
+      <div id="loading">기계 준비 중</div>
+    </div>
+    <div id="deck">
+      <button id="lever" aria-label="집게 이동 레버. 끌거나 방향키를 사용하세요"><span id="knob"></span></button>
+      <div class="turn"><span>집게 회전</span><div>
+        <button id="rl" aria-label="집게 왼쪽 회전"><svg width="24" height="24" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13 A8 8 0 1 0 9 6.8"/><path d="M9 2 V7 H4"/></svg></button>
+        <button id="rr" aria-label="집게 오른쪽 회전"><svg width="24" height="24" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13 A8 8 0 1 1 17 6.8"/><path d="M17 2 V7 H22"/></svg></button>
+      </div></div>
+      <button id="drop">내리기</button>
+    </div>
+  </div>
+</body>
+</html>
